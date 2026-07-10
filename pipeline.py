@@ -40,14 +40,9 @@ class ECGRpeakDataset(Dataset):
         y : [1, L]  float32  — Gaussian heatmap target in (0, 1]
     """
 
-    def __init__(
-        self,
-        input:      list,
-        target: list,
-        sigma:        float = 7.0,
-        length:       int   = 3600,
-        normalize:    bool  = True,
-    ) -> None:
+    def __init__(  self,  input:  list, target: list,  sigma: float = 7.0, length: int = 3600,
+        normalize:    bool  = True,  ) -> None:
+        
         assert len(input) == len(target), \
             "input and target must have the same length."
         self.input      = input
@@ -204,13 +199,22 @@ class Training:
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.show()
+    
+    
+    
+
+
+
+
+
 
 if __name__ == "__main__":
     if torch.cuda.is_available():
         print("CUDA is available. Using GPU.")
 
  
-
+    
+    
     X = np.load("dataset/input.npy")
     Y = np.load("dataset/target.npy") 
 
@@ -225,31 +229,105 @@ if __name__ == "__main__":
 
     train_loader = DataLoader(trainset, batch_size=32, shuffle=True)
     val_loader = DataLoader(valset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(testset, batch_size=32, shuffle=True)
+    test_loader = DataLoader(testset, batch_size=1, shuffle=True)
 
-    e= iter(train_loader)
-    input, targets = next(e)
-    print(input.shape, targets.shape)
     
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
+    # loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
     
-    model = ECGUNet(in_channels=1, out_channels=1, kernel_size=7, kernel_num= 4, reduction= 0.0625).to(device)
-    optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=7, kernel_num= 4, reduction= 0.0625).to(device)
+    # optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
     
-    trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer, device)
-    trainer.train(num_epochs=10)
+    
+    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer, device)
+    # trainer.train(num_epochs=10)
+
+
+    # ════════════════════════════════════════════════════════════════════════════
+    #  Inference — heatmap → R-peak sample indices
+    # ════════════════════════════════════════════════════════════════════════════
+
+def predict_rpeaks(
+    model:     ECGUNet,
+    x:         torch.Tensor,
+    threshold: float = 0.4,
+    min_dist:  int   = 72,
+    device:    str   = "cpu",
+    ) ->     list[np.ndarray]:
+    """
+    Convert model heatmap output to R-peak sample indices.
+    Steps:
+        1. model(x)   → raw logits [B, 1, L]
+        2. sigmoid     → probability map in (0, 1)
+        3. threshold   → candidate positions with prob > threshold
+        4. NMS         → greedy suppression within min_dist window
+    Args:
+        model:     trained ECGUNet.
+        x:         ECG tensor [B, 1, L].
+        threshold: minimum probability to consider a candidate (default 0.5).
+        min_dist:  minimum samples between two R-peaks.
+               Rule of thumb: sampling_rate * 0.2  (200 ms refractory)
+                 360 Hz → 72,   500 Hz → 100
+    device:    'cuda' or 'cpu'.
+    Returns:
+        List[np.ndarray] of length B — sorted R-peak indices per sample.
+    """
+    model.eval()
+    with torch.no_grad():
+        heatmap = torch.sigmoid(model(x.to(device)))  # [B, 1, L]
+    heatmap = heatmap.squeeze(1).cpu().numpy()         # [B, L]
+    results = []
+    for prob in heatmap:
+        candidates = np.where(prob > threshold)[0]
+        if len(candidates) == 0:
+            results.append(np.array([], dtype=np.int64))
+            continue
+        # Greedy NMS: pick highest peak first, suppress window around it
+        peaks      = []
+        suppressed = np.zeros(len(prob), dtype=bool)
+        for idx in candidates[np.argsort(prob[candidates])[::-1]]:
+            if suppressed[idx]:
+                continue
+            peaks.append(idx)
+            lo = max(0, idx - min_dist)
+            hi = min(len(prob), idx + min_dist + 1)
+            suppressed[lo:hi] = True
+        results.append(np.sort(np.array(peaks, dtype=np.int64)))
+    return results
 
 
 
-    # e= iter(train_loader)
-    # input, targets = next(e)
-    # print(input.shape, targets.shape)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+loaded_model = torch.load(
+    "model.pt",
+    map_location=device,
+    weights_only=False
+)
+loaded_model.to(device)
+loaded_model.eval()
+e= iter(test_loader)
+input, targets = next(e)
+print(input.shape, targets.shape)
+
+rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.4, min_dist=72, device="cuda")
+
+
+
+time = np.arange(len(input[0])) 
+normalized_input = (input[0] - input[0].mean()) / input[0].std()
+plt.figure(figsize=(14, 4))
+plt.plot(time, normalized_input, label="ECG")
+plt.scatter(
+    time[rpeaks[0]],
+    rpeaks[0],
+    color="red",
+    label="Predicted R-peaks"
+)
 # plt.figure(figsize=(12, 6))
 # plt.subplot(2, 1, 1)
-# plt.plot(targets[0])
+# plt.scatter(rpeaks[0], [1] * len(rpeaks[0]), c='red', s=50, label='Predicted R-peaks')
 # plt.subplot(2, 1, 2)
 # plt.plot(input[0])
-# plt.show()
+plt.show()
