@@ -510,6 +510,8 @@ class ECGUNet(nn.Module):
             raw logits [B, out_channels, L]
             apply torch.sigmoid() to get probabilities
         """
+        
+        
         if x.dim() != 3:
             raise ValueError(f"Expected [B, 1, L], got {tuple(x.shape)}.")
         if x.size(1) != 1:

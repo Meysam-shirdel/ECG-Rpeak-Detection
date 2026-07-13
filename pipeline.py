@@ -298,13 +298,8 @@ def predict_rpeaks(
 
 
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-loaded_model = torch.load(
-    "model.pt",
-    map_location=device,
-    weights_only=False
-)
+loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
 loaded_model.to(device)
 loaded_model.eval()
 e= iter(test_loader)
@@ -314,17 +309,11 @@ print(input.shape, targets.shape)
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.4, min_dist=72, device="cuda")
 
 
-
 time = np.arange(len(input[0])) 
 normalized_input = (input[0] - input[0].mean()) / input[0].std()
 plt.figure(figsize=(14, 4))
 plt.plot(time, normalized_input, label="ECG")
-plt.scatter(
-    time[rpeaks[0]],
-    rpeaks[0],
-    color="red",
-    label="Predicted R-peaks"
-)
+plt.scatter( time[rpeaks[0]], rpeaks[0], color="red", label="Predicted R-peaks")
 # plt.figure(figsize=(12, 6))
 # plt.subplot(2, 1, 1)
 # plt.scatter(rpeaks[0], [1] * len(rpeaks[0]), c='red', s=50, label='Predicted R-peaks')
