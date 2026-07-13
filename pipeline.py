@@ -320,3 +320,5 @@ plt.scatter( time[rpeaks[0]], rpeaks[0], color="red", label="Predicted R-peaks")
 # plt.subplot(2, 1, 2)
 # plt.plot(input[0])
 plt.show()
+
+
