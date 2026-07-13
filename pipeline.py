@@ -100,13 +100,14 @@ class CombinedLoss(nn.Module):
 
 class Training:
     
-    def __init__(self, model, train_loader, val_loader, test_loader, loss_fn, optimizer, device):
+    def __init__(self, model, train_loader, val_loader, test_loader, loss_fn, optimizer, scheduler, device):
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.loss_fn = loss_fn
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.device = device
         self.metric = MeanMetric().to(device)
     
@@ -126,14 +127,14 @@ class Training:
             inputs = inputs.unsqueeze(1).float().to(self.device)
             targets = targets.unsqueeze(1).float().to(self.device)
 
+            self.optimizer.zero_grad(set_to_none=True)
             outputs = self.model(inputs)
 
             loss = self.loss_fn(outputs, targets)
-
             loss.backward()
 
             self.optimizer.step()
-            self.optimizer.zero_grad()
+            
 
             loss_train.update(loss.item(), weight=len(targets))
             self.metric.update(outputs, targets)
@@ -182,6 +183,9 @@ class Training:
                                       self.loss_fn,
                                       self.metric)
 
+            # Scheduler step AFTER validation
+            self.scheduler.step(loss_valid)
+    
             loss_train_hist.append(loss_train)
             loss_valid_hist.append(loss_valid)
 
@@ -227,21 +231,22 @@ if __name__ == "__main__":
     valset = ECGRpeakDataset( x_val, y_val)
     testset = ECGRpeakDataset( x_test, y_test)
 
-    train_loader = DataLoader(trainset, batch_size=32, shuffle=True)
-    val_loader = DataLoader(valset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(testset, batch_size=1, shuffle=True)
+    train_loader = DataLoader(trainset, batch_size=64, shuffle=True)
+    val_loader = DataLoader(valset, batch_size=64, shuffle=False)
+    test_loader = DataLoader(testset, batch_size=1, shuffle=False)
 
     
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
+    loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
     
-    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=7, kernel_num= 4, reduction= 0.0625).to(device)
-    # optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
+    #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
     
-    
-    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer, device)
-    # trainer.train(num_epochs=10)
+    trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
+    trainer.train(num_epochs=40)
 
 
     # ════════════════════════════════════════════════════════════════════════════
