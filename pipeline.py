@@ -14,7 +14,7 @@ from wfdb import processing
 import torchmetrics as tm
 from torchmetrics.aggregation import MeanMetric
 from sklearn.model_selection import train_test_split
-
+from sklearn.metrics import ConfusionMatrixDisplay
 import warnings
 import tqdm
 
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     train_loader = DataLoader(trainset, batch_size=64, shuffle=True, collate_fn=ecg_collate_fn,)
     val_loader = DataLoader(valset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
-    test_loader = DataLoader(testset, batch_size=5, shuffle=False, collate_fn=ecg_collate_fn,)
+    test_loader = DataLoader(testset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
 
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -358,38 +358,50 @@ def predict_rpeaks(
     return results
 
 
-def compute_metrics(pred_peaks, true_peaks, tolerance=10):
 
-    matched_true = np.zeros(len(true_peaks), dtype=bool)
-
+def compute_metrics(pred_peaks, true_peaks, tolerance=0):
     TP = 0
     FP = 0
+    FN = 0
 
-    for pred in pred_peaks:
+    for pred, true in zip(pred_peaks, true_peaks):
+        pred = np.asarray(pred)
+        true = np.asarray(true)
 
-        distances = np.abs(true_peaks - pred) #this should be fixed
+        matched_true = np.zeros(len(true), dtype=bool)
 
-        if len(distances) == 0:
-            FP += 1
-            continue
+        for p in pred:
+            if len(true) == 0:
+                FP += 1
+                continue
 
-        idx = np.argmin(distances)
+            distances = np.abs(true - p)
+            idx = np.argmin(distances)
 
-        if distances[idx] <= tolerance and not matched_true[idx]:
-            TP += 1
-            matched_true[idx] = True
-        else:
-            FP += 1
+            if distances[idx] <= tolerance and not matched_true[idx]:
+                TP += 1
+                matched_true[idx] = True
+            else:
+                FP += 1
 
-    FN = np.sum(~matched_true)
+        FN += np.sum(~matched_true)
 
-    precision = TP / (TP + FP + 1e-8)
+    precision = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+    recall = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+    f1 = (
+        2 * precision * recall / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
-    recall = TP / (TP + FN + 1e-8)
-
-    f1 = 2 * precision * recall / (precision + recall + 1e-8)
-
-    return precision, recall, f1
+    return {
+        "TP": TP,
+        "FP": FP,
+        "FN": FN,
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+    }
 
 
 
@@ -406,12 +418,21 @@ print(input.shape, targets.shape)
 
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.7, min_dist=72, device="cuda")
 
-precision, recall, f1 = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=10 )
+result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=10 )
 
-print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1-score: {f1:.4f}")
+print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
+cm = np.array([
+    [result['TP'], result['FN']],
+    [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
+])
 
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=["Peak", "No Peak"]
+)
 
-
+disp.plot(cmap="Blues", values_format="d")
+plt.show()
 
 # print(rpeaks[341])
 # print(len(rpeaks))

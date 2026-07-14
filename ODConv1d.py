@@ -534,4 +534,3 @@ class ECGUNet(nn.Module):
         return self.head(d3)                   # [B,  out_channels, L]
     
     
-
