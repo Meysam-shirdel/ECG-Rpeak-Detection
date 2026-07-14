@@ -109,24 +109,44 @@ class DataPreparation():
 
             # Filter R-peaks that fall within the absolute range of the 'sig' data
             rpeaks_in_window_abs = rpeaks[(rpeaks >= startsample) & (rpeaks <= sig_end_abs_idx)]
-            print(rpeaks_in_window_abs)
+            #print(rpeaks_in_window_abs)
             # Convert these absolute indices to relative indices for plotting within the 'sig' array
             rpeaks_relative_to_sig = rpeaks_in_window_abs - startsample
-            print(len(rpeaks_relative_to_sig), len(sig))
+            #print(len(rpeaks_relative_to_sig), len(sig))
             target= self.make_rpeak_target(len(sig),rpeaks_relative_to_sig, self.fs, sigma_ms=20)
-            x,y= self.create_windows(sig, target, self.fs, window_sec=2, stride_sec=1)
-            print(x.shape,y.shape)
+            x,y, real_tar = self.create_windows(sig, target, rpeaks_relative_to_sig, self.fs, window_sec=2, stride_sec=1)
+            #print(x.shape,y.shape, real_tar.shape)
 
             X_list.append(x)
             Y_list.append(y)
-            target = np.zeros(len(rpeaks_relative_to_sig), dtype=np.int32)
-            target[:] = rpeaks_relative_to_sig
-            real_target.append(target)
+            real_target.append(real_tar)
+            #print(" ")
+            # target = np.zeros(len(rpeaks_relative_to_sig), dtype=np.int32)
+            # target[:] = rpeaks_relative_to_sig
+            # real_target.append(target)
 
+    
     input = np.concatenate(X_list, axis=0)
     target = np.concatenate(Y_list, axis=0)
+    
+    real_target_flat = []
+
+    for subject_targets in real_target:
+        for window_targets in subject_targets:
+            window_targets = np.asarray(
+                window_targets,
+                dtype=np.int64,
+            ).reshape(-1)
+
+            real_target_flat.append(window_targets)
+
+    real_target = np.asarray(real_target_flat, dtype=object)
+
+    print("Input shape:", input.shape)
+    print("Target shape:", target.shape)
+    print("Number of real targets:", len(real_target))
     #real_target = np.concatenate(real_target, axis=0)
-    print(input.shape, target.shape, len(real_target))
+  
     return input, target, real_target
 
 
@@ -143,23 +163,23 @@ class DataPreparation():
         sigma = max(1, int(round((sigma_ms / 1000) * fs)))
         radius = int(round(4 * sigma))
         rpeaks = np.asarray(rpeaks, dtype=int)
-        print(rpeaks)
+        #print(rpeaks)
         for rp in rpeaks:
             if rp < 0 or rp >= signal_length:
                 continue
 
             left = max(0, rp - radius)
             right = min(signal_length, rp + radius + 1)
-
+            
             idx = np.arange(left, right)
             gaussian = np.exp(-0.5 * ((idx - rp) / sigma) ** 2).astype(np.float32)
-
+            
             target[left:right] = np.maximum(target[left:right], gaussian)
-
+            
         return target
 
      
-  def create_windows(self,ecg, target, fs=250, window_sec=10, stride_sec=5):
+  def create_windows(self,ecg, target, rpeaks, fs=250, window_sec=10, stride_sec=5):
       """Create sliding windows from the ECG signal and corresponding targets.
       
       returns:
@@ -172,20 +192,34 @@ class DataPreparation():
 
       X = []
       Y = []
-
+      real_targets = []
       for start in range(0, len(ecg) - window_size + 1, stride):
           end = start + window_size
 
+          
+           # Select global R-peaks inside this window.
+          mask = (rpeaks >= start) & (rpeaks < end)
+          #print(mask)
+          global_window_rpeaks = rpeaks[mask]
+          #print(global_window_rpeaks)
+
+            # Convert global sample numbers into local window positions.
+          local_rpeaks = global_window_rpeaks - start
           x_win = ecg[start:end].astype(np.float32)
           y_win = target[start:end].astype(np.float32)
-
+          
           X.append(x_win)
           Y.append(y_win)
-
+          real_targets.append(local_rpeaks)
+          
+      #print(local_rpeaks)
       X = np.array(X)
       Y = np.array(Y)
+      real_targets = np.array(real_targets, dtype=object)
+      
+      print(len(X), len(Y), len(real_targets))
 
-      return X, Y
+      return X, Y, real_targets
 
 
 dp= DataPreparation(edf_path=r"E:\Bradshaw_HRfiles\EDF", timelog_path=r"E:\Bradshaw_HRfiles\Timelog", ibi_path=r"E:\Bradshaw_HRfiles\IBI", signal250hz_path=r"E:\Bradshaw_HRfiles\250Hz", fs=250)

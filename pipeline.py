@@ -210,7 +210,14 @@ class Training:
     
     
     
+def ecg_collate_fn(batch):
+    signals = torch.stack([sample[0] for sample in batch])
+    heatmaps = torch.stack([sample[1] for sample in batch])
 
+    # Keep variable-length R-peak arrays as a Python list
+    real_rpeaks = [sample[2] for sample in batch]
+
+    return signals, heatmaps, real_rpeaks
 
 
 
@@ -280,9 +287,9 @@ if __name__ == "__main__":
     # valset = ECGRpeakDataset( x_val, y_val)
     # testset = ECGRpeakDataset( x_test, y_test)
 
-    train_loader = DataLoader(trainset, batch_size=64, shuffle=True)
-    val_loader = DataLoader(valset, batch_size=64, shuffle=False)
-    test_loader = DataLoader(testset, batch_size=5, shuffle=False)
+    train_loader = DataLoader(trainset, batch_size=64, shuffle=True, collate_fn=ecg_collate_fn,)
+    val_loader = DataLoader(valset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
+    test_loader = DataLoader(testset, batch_size=5, shuffle=False, collate_fn=ecg_collate_fn,)
 
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -360,7 +367,7 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=10):
 
     for pred in pred_peaks:
 
-        distances = np.abs(true_peaks - pred)
+        distances = np.abs(true_peaks - pred) #this should be fixed
 
         if len(distances) == 0:
             FP += 1
