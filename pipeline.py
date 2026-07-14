@@ -228,64 +228,24 @@ if __name__ == "__main__":
         print("CUDA is available. Using GPU.")
 
  
-    
-    
-    # X = np.load("dataset/input.npy")
-    # Y = np.load("dataset/target.npy") 
-    X = np.load("dataset/input2.npy", allow_pickle=True)
-    Y = np.load("dataset/target2.npy", allow_pickle=True)
-    real_target = np.load("dataset/real_target2.npy", allow_pickle=True)
+    X = np.load("dataset/input.npy", allow_pickle=True)
+    Y = np.load("dataset/target.npy", allow_pickle=True)
+    real_target = np.load("dataset/real_target.npy", allow_pickle=True)
 
-    print(len(X), len(Y), len(real_target))
-    # First split: 80% train, 20% temporary
-    print(real_target[0])
-    
     x_train, x_temp,y_train, y_temp, real_train, real_temp,    = train_test_split(
-        X,
-        Y,
-        real_target,
-        test_size=0.20,
-        random_state=42,
-        shuffle=True,
-    )
+        X,  Y,  real_target,  test_size=0.20,  random_state=42,  shuffle=True, )
 
-    # Second split: temporary set into 10% validation and 10% test
-    
     x_val, x_test, y_val,  y_test,  real_val,   real_test,    = train_test_split(
-        x_temp,
-        y_temp,
-        real_temp,
-        test_size=0.50,
-        random_state=42,
-        shuffle=True,
-    )
-    trainset = ECGRpeakDataset(
-    x_train,
-    y_train,
-    real_train,
-    )
-
-    valset = ECGRpeakDataset(
-    x_val,
-    y_val,
-    real_val,
-    )
-
+        x_temp,  y_temp,  real_temp,  test_size=0.50,  random_state=42,  shuffle=True, )
+    
+    trainset = ECGRpeakDataset( x_train,  y_train,  real_train,  )
+    valset = ECGRpeakDataset(  x_val, y_val, real_val, )
     testset = ECGRpeakDataset( x_test, y_test, real_test  )
 
     print("Train:", len(x_train), len(y_train), len(real_train))
     print("Validation:", len(x_val), len(y_val), len(real_val))
     print("Test:", len(x_test), len(y_test), len(real_test))
 
-
-    # x_train, x_temp, y_train, y_temp = train_test_split( X, Y, test_size=0.20, random_state=42)
-    # x_val, x_test, y_val, y_test = train_test_split(x_temp, y_temp, test_size=0.50, random_state=42)
-
-    # print(len(x_train), len(x_val), len(x_test))
-    
-    # trainset = ECGRpeakDataset( x_train, y_train)
-    # valset = ECGRpeakDataset( x_val, y_val)
-    # testset = ECGRpeakDataset( x_test, y_test)
 
     train_loader = DataLoader(trainset, batch_size=64, shuffle=True, collate_fn=ecg_collate_fn,)
     val_loader = DataLoader(valset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
@@ -394,17 +354,7 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
         else 0.0
     )
 
-    return {
-        "TP": TP,
-        "FP": FP,
-        "FN": FN,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-    }
-
-
-
+    return { "TP": TP,  "FP": FP,  "FN": FN,  "precision": precision,  "recall": recall,  "f1": f1,  }
 
 
 
@@ -414,11 +364,11 @@ loaded_model.to(device)
 loaded_model.eval()
 e= iter(test_loader)
 input, targets, real_targets = next(e)
-print(input.shape, targets.shape)
+print(input.shape, targets.shape, len(real_targets))
 
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.7, min_dist=72, device="cuda")
 
-result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=10 )
+result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=2 )
 
 print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
 cm = np.array([
@@ -434,20 +384,21 @@ disp = ConfusionMatrixDisplay(
 disp.plot(cmap="Blues", values_format="d")
 plt.show()
 
-# print(rpeaks[341])
-# print(len(rpeaks))
 
-# time = np.arange(len(input[341])) 
-# normalized_input = (input[341] - input[341].mean()) / input[341].std()
-# plt.figure(figsize=(14, 4))
-# plt.plot(time, normalized_input, label="ECG")
-# plt.scatter( time[rpeaks[341]], normalized_input[rpeaks[341]], color="red", label="Predicted R-peaks")
-
-# # plt.figure(figsize=(12, 6))
-# # plt.subplot(2, 1, 1)
-# # plt.scatter(rpeaks[0], [1] * len(rpeaks[0]), c='red', s=50, label='Predicted R-peaks')
-# # plt.subplot(2, 1, 2)
-# # plt.plot(input[0])
-# plt.show()
+time = np.arange(len(input[10])) 
+normalized_input = (input[10] - input[10].mean()) / input[10].std()
+plt.figure(figsize=(14, 4))
+plt.plot(time, normalized_input, label="ECG")
+plt.scatter( time[rpeaks[10]], normalized_input[rpeaks[10]], color="red", label="Predicted R-peaks")
+plt.show()
+plt.figure(figsize=(12, 6))
+plt.subplot(2, 1, 1)
+plt.plot(targets[10])
+plt.legend(["Gaussian Target"])
+#plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
+plt.subplot(2, 1, 2)
+plt.plot(input[10])
+plt.legend(["Real ECG Signal"])
+plt.show()
 
 
