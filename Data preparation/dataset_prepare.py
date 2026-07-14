@@ -76,6 +76,7 @@ class DataPreparation():
     
     X_list= []
     Y_list= []
+    real_target= []
     files_list = pd.read_csv(r"dataset\files_list.csv")
 
     for sbj_id in self.subjects:
@@ -108,21 +109,25 @@ class DataPreparation():
 
             # Filter R-peaks that fall within the absolute range of the 'sig' data
             rpeaks_in_window_abs = rpeaks[(rpeaks >= startsample) & (rpeaks <= sig_end_abs_idx)]
-
+            print(rpeaks_in_window_abs)
             # Convert these absolute indices to relative indices for plotting within the 'sig' array
             rpeaks_relative_to_sig = rpeaks_in_window_abs - startsample
-
+            print(len(rpeaks_relative_to_sig), len(sig))
             target= self.make_rpeak_target(len(sig),rpeaks_relative_to_sig, self.fs, sigma_ms=20)
             x,y= self.create_windows(sig, target, self.fs, window_sec=2, stride_sec=1)
             print(x.shape,y.shape)
 
             X_list.append(x)
             Y_list.append(y)
+            target = np.zeros(len(rpeaks_relative_to_sig), dtype=np.int32)
+            target[:] = rpeaks_relative_to_sig
+            real_target.append(target)
 
     input = np.concatenate(X_list, axis=0)
     target = np.concatenate(Y_list, axis=0)
-      
-    return input, target
+    #real_target = np.concatenate(real_target, axis=0)
+    print(input.shape, target.shape, len(real_target))
+    return input, target, real_target
 
 
   def make_rpeak_target(self,signal_length, rpeaks, fs=250, sigma_ms=20):
@@ -138,7 +143,7 @@ class DataPreparation():
         sigma = max(1, int(round((sigma_ms / 1000) * fs)))
         radius = int(round(4 * sigma))
         rpeaks = np.asarray(rpeaks, dtype=int)
-
+        print(rpeaks)
         for rp in rpeaks:
             if rp < 0 or rp >= signal_length:
                 continue
@@ -183,3 +188,9 @@ class DataPreparation():
       return X, Y
 
 
+dp= DataPreparation(edf_path=r"E:\Bradshaw_HRfiles\EDF", timelog_path=r"E:\Bradshaw_HRfiles\Timelog", ibi_path=r"E:\Bradshaw_HRfiles\IBI", signal250hz_path=r"E:\Bradshaw_HRfiles\250Hz", fs=250)
+x,y, real_target= dp.create_dataset()
+
+np.save(r"dataset\input2.npy", x)
+np.save(r"dataset\target2.npy", y)
+np.save(r"dataset\real_target2.npy", real_target)
