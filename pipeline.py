@@ -223,6 +223,8 @@ def ecg_collate_fn(batch):
 
 
 
+
+
 if __name__ == "__main__":
     if torch.cuda.is_available():
         print("CUDA is available. Using GPU.")
@@ -368,7 +370,7 @@ print(input.shape, targets.shape, len(real_targets))
 
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.7, min_dist=72, device="cuda")
 
-result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=2 )
+result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=10 )
 
 print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
 cm = np.array([
