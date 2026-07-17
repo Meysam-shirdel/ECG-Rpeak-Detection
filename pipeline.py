@@ -49,17 +49,17 @@ class ECGRpeakDataset(Dataset):
         self.target = target
         self.real_target = real_target
         self.normalize    = normalize
-        #self.builder      = GaussianTargetBuilder(sigma=sigma, length=length)
+        
 
     def __len__(self) -> int:
         return len(self.input)
 
     def __getitem__(self, idx: int):
         signal = np.asarray(self.input[idx], dtype=np.float32)
-        # if self.normalize:
-        #     std = signal.std()
-        #     if std > 1e-8:
-        #         signal = (signal - signal.mean()) / std
+        if self.normalize:
+            std = signal.std()
+            if std > 1e-8:
+                signal = (signal - signal.mean()) / std
         x = torch.from_numpy(signal)#.unsqueeze(0)                    # [1, L]
         y = torch.from_numpy(self.target[idx])#.unsqueeze(0)          # [1, L]
         real_y = torch.from_numpy(self.real_target[idx])#.unsqueeze(0) # [1, L]
@@ -113,8 +113,7 @@ class Training:
         self.device = device
         self.metric = MeanMetric().to(device)
     
-    
-    
+
     def train_one_epoch(self, epoch=None):
         self.model.train()
         loss_train = MeanMetric()

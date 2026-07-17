@@ -83,15 +83,15 @@ class DataPreparation():
         
         
         ibi = files_list.loc[files_list['sbj_id'] == sbj_id]['IBI_name'].values[0]+'.txt'
-        ibis_df = pd.read_csv("E:\Bradshaw_HRfiles\IBI" + "\\" + ibi, sep=r"\s+", header=None)
+        ibis_df = pd.read_csv(self.ibi_path + "\\" + ibi, sep=r"\s+", header=None)
         ibis_df.columns = ["chron_time", "time_start_1", "time_start_2", "ibi_ms"]
 
         timelog = files_list.loc[files_list['sbj_id'] == sbj_id]['Timelog_name'].values[0]+'.txt'
-        timelog_df= pd.read_csv("E:\Bradshaw_HRfiles\Timelog"+ "\\"+ timelog)
+        timelog_df= pd.read_csv(self.timelog_path + "\\" + timelog)
         timelog_df.columns= ["Visit Date","Segment","Condition","Start","End"]
 
         sig250= files_list.loc[files_list['sbj_id'] == sbj_id]['Signal250Hz_name'].values[0]+'.txt'
-        signal250hz= pd.read_csv(r"E:\Bradshaw_HRfiles\250Hz"+ "\\"+ sig250, sep=r"\s+", header=None)
+        signal250hz= pd.read_csv(self.signal250hz_path + "\\" + sig250, sep=r"\s+", header=None)
 
         baseline = timelog_df[timelog_df["Condition"] == "Baseline"]
         if not baseline.empty:
