@@ -122,13 +122,11 @@ class Training:
         with tqdm.tqdm(self.train_loader, unit='batch') as tepoch:
           for inputs, targets, real_targets in tepoch:
             if epoch:
-              tepoch.set_description(f'Epoch {epoch}')
-            
+              tepoch.set_description(f'Epoch {epoch}')         
             
             inputs = inputs.unsqueeze(1).float().to(self.device)
             targets = targets.unsqueeze(1).float().to(self.device)
-            #real_targets = real_targets.unsqueeze(1).float().to(self.device)
-
+            
             self.optimizer.zero_grad(set_to_none=True)
             outputs = self.model(inputs)
 
@@ -136,7 +134,6 @@ class Training:
             loss.backward()
 
             self.optimizer.step()
-            
 
             loss_train.update(loss.item(), weight=len(targets))
             self.metric.update(outputs, targets)

@@ -96,7 +96,6 @@ class DataPreparation():
         baseline = timelog_df[timelog_df["Condition"] == "Baseline"]
         if not baseline.empty:
             start_sec,end_sec= timelog_df.iloc[0][["Start","End"]].astype(float)*60 
-            #rpeaks=(ibis_df.loc[(ibis_df.iloc[:,1]> start_sec) & (ibis_df.iloc[:,1] < end_sec)]['time_start_1'] * 250).astype(int)  
             rpeaks= (ibis_df.loc[(ibis_df.iloc[:,1]> start_sec) & (ibis_df.iloc[:,1] < end_sec)]["time_start_1"] * 250).astype(int)  
 
             sig = signal250hz[(signal250hz.iloc[:, 1] > start_sec) & (signal250hz.iloc[:, 1] < end_sec)][signal250hz.columns[3]].values
@@ -109,22 +108,15 @@ class DataPreparation():
 
             # Filter R-peaks that fall within the absolute range of the 'sig' data
             rpeaks_in_window_abs = rpeaks[(rpeaks >= startsample) & (rpeaks <= sig_end_abs_idx)]
-            #print(rpeaks_in_window_abs)
             # Convert these absolute indices to relative indices for plotting within the 'sig' array
             rpeaks_relative_to_sig = rpeaks_in_window_abs - startsample
-            #print(len(rpeaks_relative_to_sig), len(sig))
             target= self.make_rpeak_target(len(sig),rpeaks_relative_to_sig, self.fs, sigma_ms=20)
             x,y, real_tar = self.create_windows(sig, target, rpeaks_relative_to_sig, self.fs, window_sec=2, stride_sec=1)
-            #print(x.shape,y.shape, real_tar.shape)
 
             X_list.append(x)
             Y_list.append(y)
             real_target.append(real_tar)
-            #print(" ")
-            # target = np.zeros(len(rpeaks_relative_to_sig), dtype=np.int32)
-            # target[:] = rpeaks_relative_to_sig
-            # real_target.append(target)
-
+           
     
     input = np.concatenate(X_list, axis=0)
     target = np.concatenate(Y_list, axis=0)
@@ -142,12 +134,9 @@ class DataPreparation():
 
     real_target = np.asarray(real_target_flat, dtype=object)
 
-
-
     print("Input shape:", input.shape)
     print("Target shape:", target.shape)
     print("Number of real targets:", len(real_target))
-    #real_target = np.concatenate(real_target, axis=0)
   
     return input, target, real_target
 
@@ -165,7 +154,6 @@ class DataPreparation():
         sigma = max(1, int(round((sigma_ms / 1000) * fs)))
         radius = int(round(4 * sigma))
         rpeaks = np.asarray(rpeaks, dtype=int)
-        #print(rpeaks)
         for rp in rpeaks:
             if rp < 0 or rp >= signal_length:
                 continue
@@ -199,13 +187,11 @@ class DataPreparation():
           end = start + window_size
 
           
-           # Select global R-peaks inside this window.
+          # Select global R-peaks inside this window.
           mask = (rpeaks >= start) & (rpeaks < end)
-          #print(mask)
           global_window_rpeaks = rpeaks[mask]
-          #print(global_window_rpeaks)
 
-            # Convert global sample numbers into local window positions.
+          # Convert global sample numbers into local window positions.
           local_rpeaks = global_window_rpeaks - start
           x_win = ecg[start:end].astype(np.float32)
           y_win = target[start:end].astype(np.float32)
@@ -214,7 +200,6 @@ class DataPreparation():
           Y.append(y_win)
           real_targets.append(local_rpeaks)
           
-      #print(local_rpeaks)
       X = np.array(X)
       Y = np.array(Y)
       real_targets = np.array(real_targets, dtype=object)
@@ -230,3 +215,4 @@ class DataPreparation():
 # np.save(r"dataset\input2.npy", x)
 # np.save(r"dataset\target2.npy", y)
 # np.save(r"dataset\real_target2.npy", real_target)
+
