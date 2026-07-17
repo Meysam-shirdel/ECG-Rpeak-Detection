@@ -7,7 +7,7 @@ This is the pipeline for training a 1D Omni-Dimentional Convolutional Neural Net
 ODConv introduces a multi-dimensional attention mechanism with a parallel strategy to learn diverse attentions for convolutional kernels along all four dimensions of the kernel space.
 
 <div align="center">
-    <img src="img.jpg" alt="Logo" width="" height="200">
+    <img src="img.jpg" alt="Logo" width="500" height="300">
     <h3 align="center">Omni-Dimentional Duynamic Convolution</h3>
 </div>
 
