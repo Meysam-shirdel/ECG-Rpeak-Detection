@@ -216,53 +216,6 @@ def ecg_collate_fn(batch):
     return signals, heatmaps, real_rpeaks
 
 
-
-
-
-
-
-if __name__ == "__main__":
-    if torch.cuda.is_available():
-        print("CUDA is available. Using GPU.")
-
- 
-    X = np.load("dataset/input.npy", allow_pickle=True)
-    Y = np.load("dataset/target.npy", allow_pickle=True)
-    real_target = np.load("dataset/real_target.npy", allow_pickle=True)
-
-    x_train, x_temp,y_train, y_temp, real_train, real_temp,    = train_test_split(
-        X,  Y,  real_target,  test_size=0.20,  random_state=42,  shuffle=True, )
-
-    x_val, x_test, y_val,  y_test,  real_val,   real_test,    = train_test_split(
-        x_temp,  y_temp,  real_temp,  test_size=0.50,  random_state=42,  shuffle=True, )
-    
-    trainset = ECGRpeakDataset( x_train,  y_train,  real_train,  )
-    valset = ECGRpeakDataset(  x_val, y_val, real_val, )
-    testset = ECGRpeakDataset( x_test, y_test, real_test  )
-
-    print("Train:", len(x_train), len(y_train), len(real_train))
-    print("Validation:", len(x_val), len(y_val), len(real_val))
-    print("Test:", len(x_test), len(y_test), len(real_test))
-
-
-    train_loader = DataLoader(trainset, batch_size=64, shuffle=True, collate_fn=ecg_collate_fn,)
-    val_loader = DataLoader(valset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
-    test_loader = DataLoader(testset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
-
-    
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
-    
-    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
-    # #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
-    # optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
-    
-    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
-    # trainer.train(num_epochs=40)
-
-
     # ════════════════════════════════════════════════════════════════════════════
     #  Inference — heatmap → R-peak sample indices
     # ════════════════════════════════════════════════════════════════════════════
@@ -353,6 +306,58 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
     )
 
     return { "TP": TP,  "FP": FP,  "FN": FN,  "precision": precision,  "recall": recall,  "f1": f1,  }
+
+
+
+
+
+if __name__ == "__main__":
+    if torch.cuda.is_available():
+        print("CUDA is available. Using GPU.")
+
+ 
+    X = np.load("dataset/input.npy", allow_pickle=True)
+    Y = np.load("dataset/target.npy", allow_pickle=True)
+    real_target = np.load("dataset/real_target.npy", allow_pickle=True)
+
+    x_train, x_temp,y_train, y_temp, real_train, real_temp,    = train_test_split(
+        X,  Y,  real_target,  test_size=0.20,  random_state=42,  shuffle=True, )
+
+    x_val, x_test, y_val,  y_test,  real_val,   real_test,    = train_test_split(
+        x_temp,  y_temp,  real_temp,  test_size=0.50,  random_state=42,  shuffle=True, )
+    
+    trainset = ECGRpeakDataset( x_train,  y_train,  real_train,  )
+    valset = ECGRpeakDataset(  x_val, y_val, real_val, )
+    testset = ECGRpeakDataset( x_test, y_test, real_test  )
+
+    print("Train:", len(x_train), len(y_train), len(real_train))
+    print("Validation:", len(x_val), len(y_val), len(real_val))
+    print("Test:", len(x_test), len(y_test), len(real_test))
+
+
+    train_loader = DataLoader(trainset, batch_size=64, shuffle=True, collate_fn=ecg_collate_fn,)
+    val_loader = DataLoader(valset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
+    test_loader = DataLoader(testset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
+
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
+    
+    
+    # =====================================
+    # Training the Model
+    # =====================================
+    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
+    # #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    # optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
+    
+    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
+    # trainer.train(num_epochs=40)
+
+
+
 
 
 
