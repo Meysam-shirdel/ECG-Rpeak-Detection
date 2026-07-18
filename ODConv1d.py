@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# ════════════════════════════════════════════════════════════════════════════
+
 #  Attention1d  —  four-head shared encoder
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -33,6 +33,7 @@ class Attention1d(nn.Module):
           → spatial_fc  → sigmoid                  [B, 1, 1,  k]   (if k > 1)
           → kernel_fc   → softmax                  [B, n, 1, 1, 1] (if n > 1)
     """
+
 
     def __init__(
         self,

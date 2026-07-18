@@ -209,10 +209,11 @@ class DataPreparation():
       return X, Y, real_targets
 
 
-# dp= DataPreparation(edf_path=r"E:\Bradshaw_HRfiles\EDF", timelog_path=r"E:\Bradshaw_HRfiles\Timelog", ibi_path=r"E:\Bradshaw_HRfiles\IBI", signal250hz_path=r"E:\Bradshaw_HRfiles\250Hz", fs=250)
-# x,y, real_target= dp.create_dataset()
 
-# np.save(r"dataset\input2.npy", x)
-# np.save(r"dataset\target2.npy", y)
-# np.save(r"dataset\real_target2.npy", real_target)
+dp= DataPreparation(edf_path=r"E:\Bradshaw_HRfiles\EDF", timelog_path=r"E:\Bradshaw_HRfiles\Timelog", ibi_path=r"E:\Bradshaw_HRfiles\IBI", signal250hz_path=r"E:\Bradshaw_HRfiles\250Hz", fs=250)
+x,y, real_target= dp.create_dataset()
+
+np.save(r"dataset\input2.npy", x)
+np.save(r"dataset\target2.npy", y)
+np.save(r"dataset\real_target2.npy", real_target)
 
