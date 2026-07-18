@@ -56,10 +56,10 @@ class ECGRpeakDataset(Dataset):
 
     def __getitem__(self, idx: int):
         signal = np.asarray(self.input[idx], dtype=np.float32)
-        if self.normalize:
-            std = signal.std()
-            if std > 1e-8:
-                signal = (signal - signal.mean()) / std
+        # if self.normalize:
+        #     std = signal.std()
+        #     if std > 1e-8:
+        #         signal = (signal - signal.mean()) / std
         x = torch.from_numpy(signal)#.unsqueeze(0)                    # [1, L]
         y = torch.from_numpy(self.target[idx])#.unsqueeze(0)          # [1, L]
         real_y = torch.from_numpy(self.real_target[idx])#.unsqueeze(0) # [1, L]
@@ -364,7 +364,7 @@ e= iter(test_loader)
 input, targets, real_targets = next(e)
 print(input.shape, targets.shape, len(real_targets))
 
-rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.7, min_dist=72, device="cuda")
+rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
 
 result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=10 )
 
@@ -383,7 +383,7 @@ disp.plot(cmap="Blues", values_format="d")
 plt.show()
 
 
-time = np.arange(len(input[10])) 
+time = np.arange(len(input[10])) / 250.0  # Assuming a sampling rate of 250 Hz
 normalized_input = (input[10] - input[10].mean()) / input[10].std()
 plt.figure(figsize=(14, 4))
 plt.plot(time, normalized_input, label="ECG")
