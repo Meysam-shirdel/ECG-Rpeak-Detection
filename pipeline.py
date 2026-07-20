@@ -153,7 +153,7 @@ class Training:
           for inputs, targets, real_targets in test_loader:
             inputs = inputs.unsqueeze(1).float().to(self.device)
             targets = targets.unsqueeze(1).float().to(self.device)
-            real_targets = real_targets.unsqueeze(1).float().to(self.device)
+            # real_targets = real_targets.unsqueeze(1).float().to(self.device)
 
             outputs = model(inputs)
     
@@ -316,27 +316,36 @@ if __name__ == "__main__":
         print("CUDA is available. Using GPU.")
 
  
-    X = np.load("dataset/input.npy", allow_pickle=True)
-    Y = np.load("dataset/target.npy", allow_pickle=True)
-    real_target = np.load("dataset/real_target.npy", allow_pickle=True)
+    x_train = np.load("dataset/x_train.npy", allow_pickle=True)
+    print(x_train.shape)
+    y_train = np.load("dataset/y_train.npy", allow_pickle=True)
+    real_target_train = np.load("dataset/real_target_train.npy", allow_pickle=True)
 
-    x_train, x_temp,y_train, y_temp, real_train, real_temp,    = train_test_split(
-        X,  Y,  real_target,  test_size=0.20,  random_state=42,  shuffle=True, )
-
-    x_val, x_test, y_val,  y_test,  real_val,   real_test,    = train_test_split(
-        x_temp,  y_temp,  real_temp,  test_size=0.50,  random_state=42,  shuffle=True, )
+    x_valid = np.load("dataset/x_valid.npy", allow_pickle=True)
+    y_valid = np.load("dataset/y_valid.npy", allow_pickle=True)
+    real_target_valid = np.load("dataset/real_target_valid.npy", allow_pickle=True)
     
-    trainset = ECGRpeakDataset( x_train,  y_train,  real_train,  )
-    valset = ECGRpeakDataset(  x_val, y_val, real_val, )
-    testset = ECGRpeakDataset( x_test, y_test, real_test  )
+    x_test = np.load("dataset/x_test.npy", allow_pickle=True)
+    y_test = np.load("dataset/y_test.npy", allow_pickle=True)
+    real_target_test = np.load("dataset/real_target_test.npy", allow_pickle=True)
+    
+    # x_train, x_temp,y_train, y_temp, real_train, real_temp,    = train_test_split(
+    #     X,  Y,  real_target,  test_size=0.20,  random_state=42,  shuffle=True, )
 
-    print("Train:", len(x_train), len(y_train), len(real_train))
-    print("Validation:", len(x_val), len(y_val), len(real_val))
-    print("Test:", len(x_test), len(y_test), len(real_test))
+    # x_val, x_test, y_val,  y_test,  real_val,   real_test,    = train_test_split(
+    #     x_temp,  y_temp,  real_temp,  test_size=0.50,  random_state=42,  shuffle=True, )
+    
+    trainset = ECGRpeakDataset( x_train,  y_train,  real_target_train,  )
+    valset = ECGRpeakDataset(  x_valid, y_valid, real_target_valid, )
+    testset = ECGRpeakDataset( x_test, y_test, real_target_test  )
+
+    print("Train:", len(x_train), len(y_train), len(real_target_train))
+    print("Validation:", len(x_valid), len(y_valid), len(real_target_valid))
+    print("Test:", len(x_test), len(y_test), len(real_target_test))
 
 
-    train_loader = DataLoader(trainset, batch_size=64, shuffle=True, collate_fn=ecg_collate_fn,)
-    val_loader = DataLoader(valset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
+    train_loader = DataLoader(trainset, batch_size=32, shuffle=True, collate_fn=ecg_collate_fn,)
+    val_loader = DataLoader(valset, batch_size=32, shuffle=False, collate_fn=ecg_collate_fn,)
     test_loader = DataLoader(testset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
 
     
@@ -354,15 +363,14 @@ if __name__ == "__main__":
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
     
     # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
-    # trainer.train(num_epochs=40)
-
+    # trainer.train(num_epochs=20)
 
 
 
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
+loaded_model = torch.load( "best_model.pt", map_location=device, weights_only=False)
 loaded_model.to(device)
 loaded_model.eval()
 e= iter(test_loader)
@@ -388,19 +396,19 @@ disp.plot(cmap="Blues", values_format="d")
 plt.show()
 
 
-time = np.arange(len(input[10])) / 250.0  # Assuming a sampling rate of 250 Hz
-normalized_input = (input[10] - input[10].mean()) / input[10].std()
+time = np.arange(len(input[15]))  / 250.0  # Assuming a sampling rate of 250 Hz
+normalized_input = (input[15] - input[15].mean()) / input[15].std()
 plt.figure(figsize=(14, 4))
 plt.plot(time, normalized_input, label="ECG")
-plt.scatter( time[rpeaks[10]], normalized_input[rpeaks[10]], color="red", label="Predicted R-peaks")
+plt.scatter( time[rpeaks[15]], normalized_input[rpeaks[15]], color="red", label="Predicted R-peaks")
 plt.show()
 plt.figure(figsize=(12, 6))
 plt.subplot(2, 1, 1)
-plt.plot(targets[10])
+plt.plot(targets[15])
 plt.legend(["Gaussian Target"])
 #plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
 plt.subplot(2, 1, 2)
-plt.plot(input[10])
+plt.plot(input[15])
 plt.legend(["Real ECG Signal"])
 plt.show()
 

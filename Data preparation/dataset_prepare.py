@@ -3,7 +3,7 @@ import pandas as pd
 import os
 from pathlib import Path
 import matplotlib.pyplot as plt
-
+from sklearn.model_selection import train_test_split
 import torch
 
 class DataPreparation():
@@ -63,9 +63,9 @@ class DataPreparation():
     data_files.reset_index(drop=True, inplace=True)
     data_files.to_csv(r"dataset\files_list.csv", index=False)
     self.data_files=data_files
-    self.subjects= pd.unique(data_files["sbj_id"])      
+    self.all_subjects= pd.unique(data_files["sbj_id"])      
 
-  def create_dataset(self):
+  def create_dataset(self, subjects):
     """Create a dataset based on the data_files DataFrame
     This is a placeholder for the actual dataset creation logic.
     
@@ -79,7 +79,8 @@ class DataPreparation():
     real_target= []
     files_list = pd.read_csv(r"dataset\files_list.csv")
 
-    for sbj_id in self.subjects:
+    num_annotated_rpeaks = 0
+    for sbj_id in subjects:
         
         
         ibi = files_list.loc[files_list['sbj_id'] == sbj_id]['IBI_name'].values[0]+'.txt'
@@ -97,7 +98,7 @@ class DataPreparation():
         if not baseline.empty:
             start_sec,end_sec= timelog_df.iloc[0][["Start","End"]].astype(float)*60 
             rpeaks= (ibis_df.loc[(ibis_df.iloc[:,1]> start_sec) & (ibis_df.iloc[:,1] < end_sec)]["time_start_1"] * 250).astype(int)  
-
+            num_annotated_rpeaks += len(rpeaks)
             sig = signal250hz[(signal250hz.iloc[:, 1] > start_sec) & (signal250hz.iloc[:, 1] < end_sec)][signal250hz.columns[3]].values
             startsample= int(start_sec * self.fs)
             endsample= int(end_sec * self.fs)
@@ -137,6 +138,7 @@ class DataPreparation():
     print("Input shape:", input.shape)
     print("Target shape:", target.shape)
     print("Number of real targets:", len(real_target))
+    print("annotated peaks",num_annotated_rpeaks)
   
     return input, target, real_target
 
@@ -211,9 +213,33 @@ class DataPreparation():
 
 
 dp= DataPreparation(edf_path=r"E:\Bradshaw_HRfiles\EDF", timelog_path=r"E:\Bradshaw_HRfiles\Timelog", ibi_path=r"E:\Bradshaw_HRfiles\IBI", signal250hz_path=r"E:\Bradshaw_HRfiles\250Hz", fs=250)
-x,y, real_target= dp.create_dataset()
+# n = len(dp.all_subjects)
 
-np.save(r"dataset\input2.npy", x)
-np.save(r"dataset\target2.npy", y)
-np.save(r"dataset\real_target2.npy", real_target)
+# train_end = int(0.7 * n)
+# valid_end = int(0.85 * n)
+
+# train_sbj = dp.all_subjects[:train_end]
+# valid_sbj = dp.all_subjects[train_end:valid_end]
+# test_sbj  = dp.all_subjects[valid_end:]
+
+train_sbj, temp_sbj = train_test_split( dp.all_subjects, test_size=0.3, random_state=42, shuffle=True)
+valid_sbj, test_sbj = train_test_split( temp_sbj, test_size=0.5, random_state=42, shuffle=True)
+
+
+print(len(train_sbj), len(valid_sbj),len(test_sbj))
+x_train, y_train, real_target_train= dp.create_dataset(train_sbj)
+x_valid, y_valid, real_target_valid= dp.create_dataset(valid_sbj)
+x_test, y_test, real_target_test= dp.create_dataset(test_sbj)
+
+np.save(r"dataset\x_train.npy", x_train)
+np.save(r"dataset\y_train.npy", y_train)
+np.save(r"dataset\real_target_train.npy", real_target_train)
+
+np.save(r"dataset\x_valid.npy", x_valid)
+np.save(r"dataset\y_valid.npy", y_valid)
+np.save(r"dataset\real_target_valid.npy", real_target_valid)
+
+np.save(r"dataset\x_test.npy", x_test)
+np.save(r"dataset\y_test.npy", y_test)
+np.save(r"dataset\real_target_test.npy", real_target_test)
 
