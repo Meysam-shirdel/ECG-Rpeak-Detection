@@ -357,13 +357,13 @@ if __name__ == "__main__":
     # =====================================
     # Training the Model
     # =====================================
-    model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
-    #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
-    optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
+    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
+    # #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    # optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
     
-    trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
-    trainer.train(num_epochs=20)
+    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
+    # trainer.train(num_epochs=20)
 
 
 
