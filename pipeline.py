@@ -56,10 +56,11 @@ class ECGRpeakDataset(Dataset):
 
     def __getitem__(self, idx: int):
         signal = np.asarray(self.input[idx], dtype=np.float32)
-        # if self.normalize:
-        #     std = signal.std()
-        #     if std > 1e-8:
-        #         signal = (signal - signal.mean()) / std
+        if self.normalize:
+            std = signal.std()
+            if std > 1e-8:
+                signal = (signal - signal.mean()) / std
+
         x = torch.from_numpy(signal)#.unsqueeze(0)                    # [1, L]
         y = torch.from_numpy(self.target[idx])#.unsqueeze(0)          # [1, L]
         real_y = torch.from_numpy(self.real_target[idx])#.unsqueeze(0) # [1, L]
@@ -113,7 +114,19 @@ class Training:
         self.device = device
         self.metric = MeanMetric().to(device)
     
+    def temperature_schedule(self, epoch: int) -> float:
+        start_temperature = 10.0
+        final_temperature = 1.0
+        decay_epochs = 30
 
+        progress = min(epoch / decay_epochs, 1.0)
+
+        return (
+        start_temperature * (1.0 - progress)
+        + final_temperature * progress
+        )
+        
+        
     def train_one_epoch(self, epoch=None):
         self.model.train()
         loss_train = MeanMetric()
@@ -132,7 +145,8 @@ class Training:
 
             loss = self.loss_fn(outputs, targets)
             loss.backward()
-
+            #torch.nn.utils.clip_grad_norm_( self.model.parameters(), max_norm=5.0, )
+            
             self.optimizer.step()
 
             loss_train.update(loss.item(), weight=len(targets))
@@ -175,6 +189,11 @@ class Training:
         epoch_counter = 0
         
         for epoch in range(num_epochs):
+            
+            # # temprature update
+            # temperature = self.temperature_schedule(epoch)
+            # self.model.update_temperature(temperature)
+            
             # Train
             model, loss_train, metric_train = self.train_one_epoch( epoch)
             # Validation
@@ -223,7 +242,7 @@ def ecg_collate_fn(batch):
 def predict_rpeaks(
     model:     ECGUNet,
     x:         torch.Tensor,
-    threshold: float = 0.4,
+    threshold: float = 0.5,
     min_dist:  int   = 72,
     device:    str   = "cpu",
     ) ->     list[np.ndarray]:
@@ -368,9 +387,8 @@ if __name__ == "__main__":
 
 
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-loaded_model = torch.load( "best_model.pt", map_location=device, weights_only=False)
+loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
 loaded_model.to(device)
 loaded_model.eval()
 e= iter(test_loader)
@@ -379,7 +397,7 @@ print(input.shape, targets.shape, len(real_targets))
 
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
 
-result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=10 )
+result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
 
 print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
 cm = np.array([
@@ -393,22 +411,22 @@ disp = ConfusionMatrixDisplay(
 )
 
 disp.plot(cmap="Blues", values_format="d")
-plt.show()
 
 
-time = np.arange(len(input[15]))  / 250.0  # Assuming a sampling rate of 250 Hz
-normalized_input = (input[15] - input[15].mean()) / input[15].std()
+sample=60
+time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
+normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
 plt.figure(figsize=(14, 4))
 plt.plot(time, normalized_input, label="ECG")
-plt.scatter( time[rpeaks[15]], normalized_input[rpeaks[15]], color="red", label="Predicted R-peaks")
-plt.show()
+plt.scatter( time[rpeaks[sample]], normalized_input[rpeaks[sample]], color="red", label="Predicted R-peaks")
 plt.figure(figsize=(12, 6))
 plt.subplot(2, 1, 1)
-plt.plot(targets[15])
+plt.plot(targets[sample])
 plt.legend(["Gaussian Target"])
 #plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
 plt.subplot(2, 1, 2)
-plt.plot(input[15])
+plt.plot(input[sample])
+plt.scatter(time[real_targets[sample]], normalized_input[real_targets[sample]], c='red', s=50, label='Predicted R-peaks')
 plt.legend(["Real ECG Signal"])
 plt.show()
 
