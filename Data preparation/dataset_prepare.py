@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-import torch
+
 
 class DataPreparation():
        
@@ -112,7 +112,7 @@ class DataPreparation():
             # Convert these absolute indices to relative indices for plotting within the 'sig' array
             rpeaks_relative_to_sig = rpeaks_in_window_abs - startsample
             target= self.make_rpeak_target(len(sig),rpeaks_relative_to_sig, self.fs, sigma_ms=20)
-            x,y, real_tar = self.create_windows(sig, target, rpeaks_relative_to_sig, self.fs, window_sec=2, stride_sec=1)
+            x,y, real_tar = self.create_windows(sig, target, rpeaks_relative_to_sig, self.fs, window_sec=4, stride_sec=4)
 
             X_list.append(x)
             Y_list.append(y)
@@ -213,14 +213,16 @@ class DataPreparation():
 
 
 dp= DataPreparation(edf_path=r"E:\Bradshaw_HRfiles\EDF", timelog_path=r"E:\Bradshaw_HRfiles\Timelog", ibi_path=r"E:\Bradshaw_HRfiles\IBI", signal250hz_path=r"E:\Bradshaw_HRfiles\250Hz", fs=250)
-# n = len(dp.all_subjects)
+n = len(dp.all_subjects)
 
-# train_end = int(0.7 * n)
-# valid_end = int(0.85 * n)
 
-# train_sbj = dp.all_subjects[:train_end]
-# valid_sbj = dp.all_subjects[train_end:valid_end]
-# test_sbj  = dp.all_subjects[valid_end:]
+
+train_end = int(0.7 * n)
+valid_end = int(0.85 * n)
+
+train_sbj = dp.all_subjects[:train_end]
+valid_sbj = dp.all_subjects[train_end:valid_end]
+test_sbj  = dp.all_subjects[valid_end:]
 
 train_sbj, temp_sbj = train_test_split( dp.all_subjects, test_size=0.3, random_state=42, shuffle=True)
 valid_sbj, test_sbj = train_test_split( temp_sbj, test_size=0.5, random_state=42, shuffle=True)
@@ -243,3 +245,6 @@ np.save(r"dataset\x_test.npy", x_test)
 np.save(r"dataset\y_test.npy", y_test)
 np.save(r"dataset\real_target_test.npy", real_target_test)
 
+# trainds = np.load("E:/Bradshaw_HRfiles/R-Peak Detection Pipeline/dataset/x_train.npy", allow_pickle=True)
+# plt.plot(trainds[0])
+# plt.show()
