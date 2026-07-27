@@ -389,6 +389,7 @@ if __name__ == "__main__":
 
 
 
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
 loaded_model.to(device)
@@ -407,8 +408,6 @@ absolute_errors_sample = result['temporal_err']
 mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
 mae_ms = mae_samples *1000 /256
 der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) 
-# median_abs_error_ms = float(np.median(absolute_errors_ms))
-# std_error_ms = float(np.std(absolute_errors_ms))
 
 absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /256
 percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
@@ -416,7 +415,10 @@ percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
 print(f"Mean Absolute Error Samples: {mae_samples}")
 print(f"Detection Error Rate: {der}")
 print(f"Mean Absolute Error MS:{mae_ms}")
-print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")
+
+#95% of the correctly matched R-peaks were localized within x ms of the reference annotation.
+print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
+
 
 
 
