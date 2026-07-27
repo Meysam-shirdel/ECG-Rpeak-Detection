@@ -399,24 +399,23 @@ input, targets, real_targets = next(e)
 print(input.shape, targets.shape, len(real_targets))
 
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
-
 result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
-
 absolute_errors_sample = result['temporal_err']
 
 
 mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
-mae_ms = mae_samples *1000 /256
-der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) 
+mae_ms = mae_samples *1000 /250
+der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
 
-absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /256
+absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
+print(absolute_errors_sample)
 percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
 
 print(f"Mean Absolute Error Samples: {mae_samples}")
 print(f"Detection Error Rate: {der}")
 print(f"Mean Absolute Error MS:{mae_ms}")
 
-#95% of the correctly matched R-peaks were localized within x ms of the reference annotation.
+#95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
 print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
 
 
@@ -435,7 +434,7 @@ disp = ConfusionMatrixDisplay(
 )
 
 disp.plot(cmap="Blues", values_format="d")
-
+plt.show()
 
 sample=60
 time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
@@ -443,10 +442,12 @@ normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
 plt.figure(figsize=(14, 4))
 plt.plot(time, normalized_input, label="ECG")
 plt.scatter( time[rpeaks[sample]], normalized_input[rpeaks[sample]], color="red", label="Predicted R-peaks")
+plt.show()
 plt.figure(figsize=(12, 6))
 plt.subplot(2, 1, 1)
 plt.plot(targets[sample])
 plt.legend(["Gaussian Target"])
+plt.show()
 #plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
 plt.subplot(2, 1, 2)
 plt.plot(input[sample])
