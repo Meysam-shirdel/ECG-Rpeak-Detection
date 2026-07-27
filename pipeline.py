@@ -293,7 +293,7 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
     TP = 0
     FP = 0
     FN = 0
-
+    temporal_loc_errs = []
     for pred, true in zip(pred_peaks, true_peaks):
         pred = np.asarray(pred)
         true = np.asarray(true)
@@ -311,6 +311,7 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
             if distances[idx] <= tolerance and not matched_true[idx]:
                 TP += 1
                 matched_true[idx] = True
+                temporal_loc_errs.append( int(distances[idx]) /250 *1000)
             else:
                 FP += 1
 
@@ -324,7 +325,8 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
         else 0.0
     )
 
-    return { "TP": TP,  "FP": FP,  "FN": FN,  "precision": precision,  "recall": recall,  "f1": f1,  }
+    return { "TP": TP,  "FP": FP,  "FN": FN,  "precision": precision, 
+            "recall": recall,  "f1": f1, "temporal_err":temporal_loc_errs }
 
 
 
@@ -398,6 +400,26 @@ print(input.shape, targets.shape, len(real_targets))
 rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
 
 result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
+
+absolute_errors_sample = result['temporal_err']
+
+
+mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
+mae_ms = mae_samples *1000 /256
+der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) 
+# median_abs_error_ms = float(np.median(absolute_errors_ms))
+# std_error_ms = float(np.std(absolute_errors_ms))
+
+absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /256
+percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
+
+print(f"Mean Absolute Error Samples: {mae_samples}")
+print(f"Detection Error Rate: {der}")
+print(f"Mean Absolute Error MS:{mae_ms}")
+print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")
+
+
+
 
 print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
 cm = np.array([
