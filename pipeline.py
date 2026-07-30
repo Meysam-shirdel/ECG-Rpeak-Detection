@@ -378,81 +378,81 @@ if __name__ == "__main__":
     # =====================================
     # Training the Model
     # =====================================
-    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
-    # #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
-    # optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
+    model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
+    #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
     
-    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
-    # trainer.train(num_epochs=20)
+    trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
+    trainer.train(num_epochs=20)
 
 
 
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
-loaded_model.to(device)
-loaded_model.eval()
-e= iter(test_loader)
-input, targets, real_targets = next(e)
-print(input.shape, targets.shape, len(real_targets))
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
+# loaded_model.to(device)
+# loaded_model.eval()
+# e= iter(test_loader)
+# input, targets, real_targets = next(e)
+# print(input.shape, targets.shape, len(real_targets))
 
-rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
-result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
-absolute_errors_sample = result['temporal_err']
-
-
-mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
-mae_ms = mae_samples *1000 /250
-der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
-
-absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
-print(absolute_errors_sample)
-percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
-
-print(f"Mean Absolute Error Samples: {mae_samples}")
-print(f"Detection Error Rate: {der}")
-print(f"Mean Absolute Error MS:{mae_ms}")
-
-#95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
-print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
+# rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
+# result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
+# absolute_errors_sample = result['temporal_err']
 
 
+# mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
+# mae_ms = mae_samples *1000 /250
+# der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
+
+# absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
+# print(absolute_errors_sample)
+# percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
+
+# print(f"Mean Absolute Error Samples: {mae_samples}")
+# print(f"Detection Error Rate: {der}")
+# print(f"Mean Absolute Error MS:{mae_ms}")
+
+# #95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
+# print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
 
 
 
-print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
-cm = np.array([
-    [result['TP'], result['FN']],
-    [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
-])
 
-disp = ConfusionMatrixDisplay(
-    confusion_matrix=cm,
-    display_labels=["Peak", "No Peak"]
-)
 
-disp.plot(cmap="Blues", values_format="d")
-plt.show()
+# print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
+# cm = np.array([
+#     [result['TP'], result['FN']],
+#     [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
+# ])
 
-sample=60
-time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
-normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
-plt.figure(figsize=(14, 4))
-plt.plot(time, normalized_input, label="ECG")
-plt.scatter( time[rpeaks[sample]], normalized_input[rpeaks[sample]], color="red", label="Predicted R-peaks")
-plt.show()
-plt.figure(figsize=(12, 6))
-plt.subplot(2, 1, 1)
-plt.plot(targets[sample])
-plt.legend(["Gaussian Target"])
-plt.show()
-#plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
-plt.subplot(2, 1, 2)
-plt.plot(input[sample])
-plt.scatter(time[real_targets[sample]], normalized_input[real_targets[sample]], c='red', s=50, label='Predicted R-peaks')
-plt.legend(["Real ECG Signal"])
-plt.show()
+# disp = ConfusionMatrixDisplay(
+#     confusion_matrix=cm,
+#     display_labels=["Peak", "No Peak"]
+# )
+
+# disp.plot(cmap="Blues", values_format="d")
+# plt.show()
+
+# sample=60
+# time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
+# normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
+# plt.figure(figsize=(14, 4))
+# plt.plot(time, normalized_input, label="ECG")
+# plt.scatter( time[rpeaks[sample]], normalized_input[rpeaks[sample]], color="red", label="Predicted R-peaks")
+# plt.show()
+# plt.figure(figsize=(12, 6))
+# plt.subplot(2, 1, 1)
+# plt.plot(targets[sample])
+# plt.legend(["Gaussian Target"])
+# plt.show()
+# #plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
+# plt.subplot(2, 1, 2)
+# plt.plot(input[sample])
+# plt.scatter(time[real_targets[sample]], normalized_input[real_targets[sample]], c='red', s=50, label='Predicted R-peaks')
+# plt.legend(["Real ECG Signal"])
+# plt.show()
 
 
