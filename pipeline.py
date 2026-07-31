@@ -267,16 +267,25 @@ def predict_rpeaks(
     model.eval()
     with torch.no_grad():
         heatmap = torch.sigmoid(model(x.to(device)))  # [B, 1, L]
+    
+    
     heatmap = heatmap.squeeze(1).cpu().numpy()         # [B, L]
+    # plt.figure(figsize=(12,5))
+    # time22 = np.arange(heatmap.size)
+    # plt.plot(time22, heatmap[0,:])
+    # plt.show()
     results = []
     for prob in heatmap:
         candidates = np.where(prob > threshold)[0]
+        # plt.plot(time22[candidates], heatmap[0][candidates],'.r')
+        # plt.show()
         if len(candidates) == 0:
             results.append(np.array([], dtype=np.int64))
             continue
         # Greedy NMS: pick highest peak first, suppress window around it
         peaks      = []
         suppressed = np.zeros(len(prob), dtype=bool)
+        
         for idx in candidates[np.argsort(prob[candidates])[::-1]]:
             if suppressed[idx]:
                 continue
@@ -285,6 +294,9 @@ def predict_rpeaks(
             hi = min(len(prob), idx + min_dist + 1)
             suppressed[lo:hi] = True
         results.append(np.sort(np.array(peaks, dtype=np.int64)))
+        
+        # plt.plot(time22[results], heatmap[0][results],'.g', markersize=16)
+        # plt.show()
     return results
 
 
@@ -336,7 +348,7 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         print("CUDA is available. Using GPU.")
 
- 
+    
     x_train = np.load("dataset/x_train.npy", allow_pickle=True)
     print(x_train.shape)
     y_train = np.load("dataset/y_train.npy", allow_pickle=True)
@@ -367,7 +379,7 @@ if __name__ == "__main__":
 
     train_loader = DataLoader(trainset, batch_size=32, shuffle=True, collate_fn=ecg_collate_fn,)
     val_loader = DataLoader(valset, batch_size=32, shuffle=False, collate_fn=ecg_collate_fn,)
-    test_loader = DataLoader(testset, batch_size=64, shuffle=False, collate_fn=ecg_collate_fn,)
+    test_loader = DataLoader(testset, batch_size=128, shuffle=False, collate_fn=ecg_collate_fn,)
 
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -378,55 +390,56 @@ if __name__ == "__main__":
     # =====================================
     # Training the Model
     # =====================================
-    model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
-    #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
-    optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
+    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
+    # #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    # optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
     
-    trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
-    trainer.train(num_epochs=20)
+    # trainer= Training(model, train_loader, val_loader, test_loader, loss_fn, optimizer,scheduler, device)
+    # trainer.train(num_epochs=20)
+
+
+e= iter(test_loader)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
+loaded_model.to(device)
+loaded_model.eval()
+for i in range(5):
+    
+    
+    
+    input, targets, real_targets = next(e)
+    print(input.shape, targets.shape, len(real_targets))
+
+    rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
+    result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
+    absolute_errors_sample = result['temporal_err']
+
+
+    mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
+    mae_ms = mae_samples *1000 /250
+    der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
+
+    absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
+    #print(absolute_errors_sample)
+    percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
+
+    print(f"Mean Absolute Error Samples: {mae_samples}")
+    print(f"Detection Error Rate: {der}")
+    print(f"Mean Absolute Error MS:{mae_ms}")
+
+    #95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
+    print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
 
 
 
 
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
-# loaded_model.to(device)
-# loaded_model.eval()
-# e= iter(test_loader)
-# input, targets, real_targets = next(e)
-# print(input.shape, targets.shape, len(real_targets))
-
-# rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
-# result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
-# absolute_errors_sample = result['temporal_err']
-
-
-# mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
-# mae_ms = mae_samples *1000 /250
-# der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
-
-# absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
-# print(absolute_errors_sample)
-# percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
-
-# print(f"Mean Absolute Error Samples: {mae_samples}")
-# print(f"Detection Error Rate: {der}")
-# print(f"Mean Absolute Error MS:{mae_ms}")
-
-# #95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
-# print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
-
-
-
-
-
-# print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
-# cm = np.array([
-#     [result['TP'], result['FN']],
-#     [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
-# ])
+    # print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
+    # cm = np.array([
+    #     [result['TP'], result['FN']],
+    #     [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
+    # ])
 
 # disp = ConfusionMatrixDisplay(
 #     confusion_matrix=cm,
