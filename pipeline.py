@@ -270,14 +270,30 @@ def predict_rpeaks(
     
     
     heatmap = heatmap.squeeze(1).cpu().numpy()         # [B, L]
+    
+    # sample=5
+    # candidates1 = np.where(heatmap[sample-1] > threshold)[0]
+    # candidates2 = np.where(heatmap[sample] > threshold)[0]   
+    # time22 = np.arange(heatmap.shape[1])
+    # newx= x.squeeze(1).cpu().numpy()         # [B, L]
     # plt.figure(figsize=(12,5))
-    # time22 = np.arange(heatmap.size)
-    # plt.plot(time22, heatmap[0,:])
+    # plt.subplot(1, 2, 1)
+    # plt.plot(time22, heatmap[sample-1,:])
+    # plt.plot(time22, newx[sample-1,:])
+    # plt.plot(time22[candidates1], heatmap[sample-1][candidates1],'.r')
+    # plt.title("Sample " + str(sample-1))
+    # plt.legend(["Heatmap", "ECG"])
+    # plt.subplot(1, 2, 2)
+    # plt.plot(time22, heatmap[sample,:])
+    # plt.plot(time22, newx[sample,:])
+    # plt.plot(time22[candidates2], heatmap[sample][candidates2],'.r')
+    # plt.title("Sample " + str(sample))
+    # plt.legend(["Heatmap", "ECG"])
     # plt.show()
     results = []
     for prob in heatmap:
         candidates = np.where(prob > threshold)[0]
-        # plt.plot(time22[candidates], heatmap[0][candidates],'.r')
+        # plt.plot(time22[candidates], heatmap[5][candidates],'.r')
         # plt.show()
         if len(candidates) == 0:
             results.append(np.array([], dtype=np.int64))
@@ -294,8 +310,8 @@ def predict_rpeaks(
             hi = min(len(prob), idx + min_dist + 1)
             suppressed[lo:hi] = True
         results.append(np.sort(np.array(peaks, dtype=np.int64)))
-        
-        # plt.plot(time22[results], heatmap[0][results],'.g', markersize=16)
+         
+        # plt.plot(time22[results], heatmap[5][results],'.g', markersize=16)
         # plt.show()
     return results
 
@@ -306,10 +322,12 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
     FP = 0
     FN = 0
     temporal_loc_errs = []
-    for pred, true in zip(pred_peaks, true_peaks):
+    wrong_pred = []
+    for i, (pred, true) in enumerate(zip(pred_peaks, true_peaks)):
         pred = np.asarray(pred)
         true = np.asarray(true)
-
+        if len(pred) >  len(true): wrong_pred.append(i)
+        
         matched_true = np.zeros(len(true), dtype=bool)
 
         for p in pred:
@@ -326,6 +344,7 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
                 temporal_loc_errs.append( int(distances[idx]) /250 *1000)
             else:
                 FP += 1
+                
 
         FN += np.sum(~matched_true)
 
@@ -399,57 +418,54 @@ if __name__ == "__main__":
     # trainer.train(num_epochs=20)
 
 
-e= iter(test_loader)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 loaded_model = torch.load( "model.pt", map_location=device, weights_only=False)
 loaded_model.to(device)
 loaded_model.eval()
-for i in range(5):
-    
-    
-    
-    input, targets, real_targets = next(e)
-    print(input.shape, targets.shape, len(real_targets))
+e= iter(test_loader)
+input, targets, real_targets = next(e)
+print(input.shape, targets.shape, len(real_targets))
 
-    rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
-    result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
-    absolute_errors_sample = result['temporal_err']
+rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
+result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
+absolute_errors_sample = result['temporal_err']
 
 
-    mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
-    mae_ms = mae_samples *1000 /250
-    der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
+mae_samples = float(np.mean(absolute_errors_sample)) # MAE sample
+mae_ms = mae_samples *1000 /250
+der = (int(result['FP'])+ int(result['FN']) )/ (int(result['TP'])+ result['FN']) *100
 
-    absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
-    #print(absolute_errors_sample)
-    percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
+absolute_errors_ms = np.array(absolute_errors_sample)  * 1000 /250
+#print(absolute_errors_sample)
+percentile_95_abs_error_ms = float(np.percentile(absolute_errors_ms, 95))
 
-    print(f"Mean Absolute Error Samples: {mae_samples}")
-    print(f"Detection Error Rate: {der}")
-    print(f"Mean Absolute Error MS:{mae_ms}")
+print(f"Mean Absolute Error Samples: {mae_samples}")
+print(f"Detection Error Rate: {der}")
+print(f"Mean Absolute Error MS:{mae_ms}")
 
-    #95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
-    print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
+#95% of the correctly matched R-peaks were localized within x ms of the reference R-peaks.
+print(f"percentile_95_abs_error_ms: {percentile_95_abs_error_ms}")  
 
 
 
 
 
-    # print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
-    # cm = np.array([
-    #     [result['TP'], result['FN']],
-    #     [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
-    # ])
+print(f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, F1-score: {result['f1']:.4f}")
+cm = np.array([
+    [result['TP'], result['FN']],
+    [result['FP'], 0]   # TN is undefined, so put 0 or leave as NaN
+])
 
-# disp = ConfusionMatrixDisplay(
-#     confusion_matrix=cm,
-#     display_labels=["Peak", "No Peak"]
-# )
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=["Peak", "No Peak"]
+)
 
-# disp.plot(cmap="Blues", values_format="d")
-# plt.show()
+disp.plot(cmap="Blues", values_format="d")
+plt.show()
 
-# sample=60
+# sample=5
 # time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
 # normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
 # plt.figure(figsize=(14, 4))
