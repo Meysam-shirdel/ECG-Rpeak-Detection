@@ -80,6 +80,7 @@ class DataPreparation():
     files_list = pd.read_csv(r"dataset\files_list.csv")
 
     num_annotated_rpeaks = 0
+    No_Subj_included = 0
     for sbj_id in subjects:
         
         
@@ -94,25 +95,27 @@ class DataPreparation():
         sig250= files_list.loc[files_list['sbj_id'] == sbj_id]['Signal250Hz_name'].values[0]+'.txt'
         signal250hz= pd.read_csv(self.signal250hz_path + "\\" + sig250, sep=r"\s+", header=None)
 
-        baseline = timelog_df[timelog_df["Condition"] == "Baseline"]
+        baseline = timelog_df[timelog_df["Condition"] == "Bayley"]
+
         if not baseline.empty:
+            No_Subj_included +=1
             start_sec,end_sec= timelog_df.iloc[0][["Start","End"]].astype(float)*60 
             rpeaks= (ibis_df.loc[(ibis_df.iloc[:,1]> start_sec) & (ibis_df.iloc[:,1] < end_sec)]["time_start_1"] * 250).astype(int)  
             num_annotated_rpeaks += len(rpeaks)
             sig = signal250hz[(signal250hz.iloc[:, 1] > start_sec) & (signal250hz.iloc[:, 1] < end_sec)][signal250hz.columns[3]].values
-            startsample= int(start_sec * self.fs)
-            endsample= int(end_sec * self.fs)
-            sig= signal250hz.iloc[startsample:endsample,3]
+            startsample= np.rint(start_sec * self.fs).astype(np.int64) #int(start_sec * self.fs)
+            endsample= np.rint(end_sec * self.fs).astype(np.int64) #int(end_sec * self.fs)
+            sig= signal250hz.iloc[startsample:endsample+1,3]
 
             # Calculate the absolute end index for the 'sig' data
             sig_end_abs_idx = endsample  
 
             # Filter R-peaks that fall within the absolute range of the 'sig' data
-            rpeaks_in_window_abs = rpeaks[(rpeaks >= startsample) & (rpeaks <= sig_end_abs_idx)]
+            rpeaks_in_window_abs = rpeaks[(rpeaks >= startsample) & (rpeaks < sig_end_abs_idx)]
             # Convert these absolute indices to relative indices for plotting within the 'sig' array
             rpeaks_relative_to_sig = rpeaks_in_window_abs - startsample
-            target= self.make_rpeak_target(len(sig),rpeaks_relative_to_sig, self.fs, sigma_ms=20)
-            x,y, real_tar = self.create_windows(sig, target, rpeaks_relative_to_sig, self.fs, window_sec=4, stride_sec=4)
+            #target= self.make_rpeak_target(len(sig),rpeaks_relative_to_sig, self.fs, sigma_ms=20)
+            x,y, real_tar = self.create_windows(sig, rpeaks_relative_to_sig, self.fs, window_sec=4, sigma_ms=20, stride_sec=3)
 
             X_list.append(x)
             Y_list.append(y)
@@ -139,10 +142,11 @@ class DataPreparation():
     print("Target shape:", target.shape)
     print("Number of real targets:", len(real_target))
     print("annotated peaks",num_annotated_rpeaks)
-  
+    print("Number of subjects included:", No_Subj_included)
+
     return input, target, real_target
-
-
+  
+  
   def make_rpeak_target(self,signal_length, rpeaks, fs=250, sigma_ms=20):
         """
         Create Gaussian target peaks centered at R-peak locations.
@@ -171,14 +175,14 @@ class DataPreparation():
         return target
 
      
-  def create_windows(self,ecg, target, rpeaks, fs=250, window_sec=10, stride_sec=5):
+  def create_windows(self,ecg, rpeaks, fs=250, window_sec=10, sigma_ms=20, stride_sec=5):
       """Create sliding windows from the ECG signal and corresponding targets.
       
       returns:
           X (np.ndarray): Array of ECG windows.
       """
       
-      window_size = int(window_sec * fs)
+      window_size = int(window_sec * fs)      
       stride = int(stride_sec * fs)
 
 
@@ -191,12 +195,15 @@ class DataPreparation():
           
           # Select global R-peaks inside this window.
           mask = (rpeaks >= start) & (rpeaks < end)
-          global_window_rpeaks = rpeaks[mask]
+        #   global_window_rpeaks = rpeaks[mask]
+          local_rpeaks  = rpeaks[mask] - start
 
           # Convert global sample numbers into local window positions.
-          local_rpeaks = global_window_rpeaks - start
+          #local_rpeaks = global_window_rpeaks - start
           x_win = ecg[start:end].astype(np.float32)
-          y_win = target[start:end].astype(np.float32)
+          y_win = self.make_rpeak_target( signal_length=window_size, 
+                                         rpeaks=local_rpeaks, fs=fs, sigma_ms=sigma_ms )
+          #y_win = target[start:end].astype(np.float32)
           
           X.append(x_win)
           Y.append(y_win)
@@ -248,4 +255,15 @@ np.save(r"dataset\real_target_test.npy", real_target_test)
 
 # trainds = np.load("E:/Bradshaw_HRfiles/R-Peak Detection Pipeline/dataset/x_train.npy", allow_pickle=True)
 # plt.plot(trainds[0])
+# plt.show()
+
+# xd= np.load("E:/Bradshaw_HRfiles/R-Peak Detection Pipeline/dataset/x_train.npy", allow_pickle=True)
+# td= np.load("E:/Bradshaw_HRfiles/R-Peak Detection Pipeline/dataset/y_train.npy", allow_pickle=True)
+
+# std = xd[0].std()
+# if std > 1e-8:
+#     input = (xd[0] - xd[0].mean()) / std
+
+# plt.plot(input)
+# plt.plot(td[0])
 # plt.show()

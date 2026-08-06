@@ -271,25 +271,25 @@ def predict_rpeaks(
     
     heatmap = heatmap.squeeze(1).cpu().numpy()         # [B, L]
     
-    # sample=5
-    # candidates1 = np.where(heatmap[sample-1] > threshold)[0]
-    # candidates2 = np.where(heatmap[sample] > threshold)[0]   
-    # time22 = np.arange(heatmap.shape[1])
-    # newx= x.squeeze(1).cpu().numpy()         # [B, L]
-    # plt.figure(figsize=(12,5))
-    # plt.subplot(1, 2, 1)
-    # plt.plot(time22, heatmap[sample-1,:])
-    # plt.plot(time22, newx[sample-1,:])
-    # plt.plot(time22[candidates1], heatmap[sample-1][candidates1],'.r')
-    # plt.title("Sample " + str(sample-1))
-    # plt.legend(["Heatmap", "ECG"])
-    # plt.subplot(1, 2, 2)
-    # plt.plot(time22, heatmap[sample,:])
-    # plt.plot(time22, newx[sample,:])
-    # plt.plot(time22[candidates2], heatmap[sample][candidates2],'.r')
-    # plt.title("Sample " + str(sample))
-    # plt.legend(["Heatmap", "ECG"])
-    # plt.show()
+    sample=18
+    candidates1 = np.where(heatmap[sample-1] > threshold)[0]
+    candidates2 = np.where(heatmap[sample] > threshold)[0]   
+    time22 = np.arange(heatmap.shape[1])
+    newx= x.squeeze(1).cpu().numpy()         # [B, L]
+    plt.figure(figsize=(12,5))
+    plt.subplot(1, 2, 1)
+    plt.plot(time22, heatmap[sample-1,:])
+    plt.plot(time22, newx[sample-1,:])
+    plt.plot(time22[candidates1], heatmap[sample-1][candidates1],'.r')
+    plt.title("Sample " + str(sample-1))
+    plt.legend(["Heatmap", "ECG"])
+    plt.subplot(1, 2, 2)
+    plt.plot(time22, heatmap[sample,:])
+    plt.plot(time22, newx[sample,:])
+    plt.plot(time22[candidates2], heatmap[sample][candidates2],'.r')
+    plt.title("Sample " + str(sample))
+    plt.legend(["Heatmap", "ECG"])
+    plt.show()
     results = []
     for prob in heatmap:
         candidates = np.where(prob > threshold)[0]
@@ -363,6 +363,7 @@ def compute_metrics(pred_peaks, true_peaks, tolerance=0):
 
 
 
+
 if __name__ == "__main__":
     if torch.cuda.is_available():
         print("CUDA is available. Using GPU.")
@@ -400,7 +401,13 @@ if __name__ == "__main__":
     val_loader = DataLoader(valset, batch_size=32, shuffle=False, collate_fn=ecg_collate_fn,)
     test_loader = DataLoader(testset, batch_size=128, shuffle=False, collate_fn=ecg_collate_fn,)
 
-    
+    # e= iter(train_loader)
+    # input, targets, real_targets = next(e)
+    # plt.figure(figsize=(12, 6))
+    # plt.plot(input[3])
+    # plt.plot(input[4])
+    # plt.show()
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     loss_fn = CombinedLoss(mse_weight=1.0, bce_weight=1.0).to(device)
@@ -409,7 +416,7 @@ if __name__ == "__main__":
     # =====================================
     # Training the Model
     # =====================================
-    # model = ECGUNet(in_channels=1, out_channels=1, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
+    # model = ECGUNet(in_channels=1, out_channels=1, base_filters=32, kernel_size=9, kernel_num= 4, reduction= 0.0625).to(device)
     # #optimizer    = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
     # optimizer = torch.optim.AdamW( model.parameters(), lr=3e-4, weight_decay=1e-4,)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau( optimizer, mode="min", factor=0.5, patience=5)
@@ -427,7 +434,7 @@ e= iter(test_loader)
 input, targets, real_targets = next(e)
 print(input.shape, targets.shape, len(real_targets))
 
-rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.5, min_dist=72, device="cuda")
+rpeaks= predict_rpeaks(loaded_model, input.unsqueeze(1).to("cuda"), threshold=0.95, min_dist=72, device="cuda")
 result = compute_metrics( rpeaks,  true_peaks=real_targets,  tolerance=5 )
 absolute_errors_sample = result['temporal_err']
 
@@ -465,23 +472,23 @@ disp = ConfusionMatrixDisplay(
 disp.plot(cmap="Blues", values_format="d")
 plt.show()
 
-# sample=5
-# time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
-# normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
-# plt.figure(figsize=(14, 4))
-# plt.plot(time, normalized_input, label="ECG")
-# plt.scatter( time[rpeaks[sample]], normalized_input[rpeaks[sample]], color="red", label="Predicted R-peaks")
-# plt.show()
-# plt.figure(figsize=(12, 6))
-# plt.subplot(2, 1, 1)
-# plt.plot(targets[sample])
-# plt.legend(["Gaussian Target"])
-# plt.show()
-# #plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
-# plt.subplot(2, 1, 2)
-# plt.plot(input[sample])
-# plt.scatter(time[real_targets[sample]], normalized_input[real_targets[sample]], c='red', s=50, label='Predicted R-peaks')
-# plt.legend(["Real ECG Signal"])
-# plt.show()
+sample=5
+time = np.arange(len(input[sample])) # / 250.0  # Assuming a sampling rate of 250 Hz
+normalized_input = (input[sample] - input[sample].mean()) / input[sample].std()
+plt.figure(figsize=(14, 4))
+plt.plot(time, normalized_input, label="ECG")
+plt.scatter( time[rpeaks[sample]], normalized_input[rpeaks[sample]], color="red", label="Predicted R-peaks")
+plt.show()
+plt.figure(figsize=(12, 6))
+plt.subplot(2, 1, 1)
+plt.plot(targets[sample])
+plt.legend(["Gaussian Target"])
+plt.show()
+#plt.scatter(targets[10], [1] * len(targets[10]), c='red', s=50, label='Predicted R-peaks')
+plt.subplot(2, 1, 2)
+plt.plot(input[sample])
+plt.scatter(time[real_targets[sample]], normalized_input[real_targets[sample]], c='red', s=50, label='Predicted R-peaks')
+plt.legend(["Real ECG Signal"])
+plt.show()
 
 
